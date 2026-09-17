@@ -12,3 +12,5 @@ GOOGLE_KEY = os.getenv('GOOGLE_FACTCHECK_API_KEY', '')
 GROQ_MODEL = os.getenv('GROQ_MODEL', 'llama-3.3-70b-versatile')
 DEVELOPMENT = os.getenv('APP_ENV', 'development') == 'development'
 DB_PATH = Path(os.getenv('VERITRACE_DB', str(ROOT / 'data' / 'veritrace.db')))
+
+HOSTED = os.getenv('VERCEL') == '1'

@@ -65,16 +65,23 @@ def request(url, payload=None, headers=None, limit=2_000_000, timeout=12):
             if not addresses or any(not ipaddress.ip_address(a[4][0]).is_global for a in addresses):
                 raise ServiceError('Private network URL blocked')
             # Pin the checked address; a second DNS lookup could permit DNS rebinding.
-            family, kind, protocol, _, address = addresses[0]
-            sock = socket.socket(family, kind, protocol)
-            sock.settimeout(max(0.1, deadline - time.monotonic()))
-            try:
-                sock.connect(address)
-                if u.scheme == 'https':
-                    sock = ssl.create_default_context().wrap_socket(sock, server_hostname=u.hostname)
-            except Exception:
-                sock.close()
-                raise
+            sock = None
+            for family, kind, protocol, _, address in addresses[:4]:
+                candidate = socket.socket(family, kind, protocol)
+                candidate.settimeout(min(4, max(.1, deadline - time.monotonic())))
+                try:
+                    candidate.connect(address)
+                    if u.scheme == 'https':
+                        candidate = ssl.create_default_context().wrap_socket(candidate, server_hostname=u.hostname)
+                    sock = candidate
+                    break
+                except OSError:
+                    candidate.close()
+                    if time.monotonic() >= deadline:
+                        break
+            if sock is None:
+                raise ServiceError('Network unavailable, timeout, or TLS error')
+            sock.settimeout(max(.1, deadline - time.monotonic()))
             conn = http.client.HTTPConnection(u.hostname, u.port, timeout=remaining)
             conn.sock = sock
             try:
@@ -115,9 +122,9 @@ def request(url, payload=None, headers=None, limit=2_000_000, timeout=12):
     raise ServiceError('Too many redirects')
 
 
-def json_request(url, payload=None, headers=None):
+def json_request(url, payload=None, headers=None, timeout=12):
     try:
-        text, _, _ = request(url, payload, headers)
+        text, _, _ = request(url, payload, headers, timeout=timeout)
         return json.loads(text)
     except (json.JSONDecodeError, TypeError):
         raise ServiceError('Provider returned invalid data') from None

@@ -26,10 +26,10 @@ def make_graph(claim, sources, fact_checks):
                 edges.append({'source': source['id'], 'target': target, 'relationship': 'links_to', 'isInferred': False, 'confidence': 1, 'proof': 'An article-body hyperlink in this page points to the target URL. A link alone does not prove transmission.'})
     for i, check in enumerate(fact_checks):
         node_id = 'fc' + str(i)
-        nodes.append({'id': node_id, 'type': 'factcheck', 'label': check['publisher'], 'title': check['reviewedClaim'], 'publisher': check['publisher'], 'url': check['url'], 'publishedAt': check['publishedAt'], 'stance': 'context', 'confidence': None, 'excerpt': 'Publisher rating: ' + check['rating']})
+        nodes.append({'id': node_id, 'type': 'factcheck', 'label': check['publisher'], 'title': check['reviewedClaim'], 'publisher': check['publisher'], 'url': check['url'], 'publishedAt': check['publishedAt'], 'stance': check.get('stance', 'context'), 'confidence': None, 'excerpt': 'Publisher rating: ' + check['rating']})
         exact = norm(check['reviewedClaim']).rstrip('.!?') == norm(claim).rstrip('.!?')
-        if exact:
-            edges.append({'source': node_id, 'target': 'claim', 'relationship': 'fact_checks', 'isInferred': False, 'confidence': 1, 'proof': 'The fact-check database or ClaimReview metadata names the same claim wording.'})
+        if exact or check.get('matched'):
+            edges.append({'source': node_id, 'target': 'claim', 'relationship': 'fact_checks', 'isInferred': not exact, 'confidence': 1 if exact else .9, 'proof': 'The fact-check database or ClaimReview metadata names the same claim wording.' if exact else 'Possible relationship: AI matched the reviewed claim to this wording.'})
         target = by_url.get(canonical_url(check['url']))
         if target:
             edges.append({'source': node_id, 'target': target, 'relationship': 'references', 'isInferred': False, 'confidence': 1, 'proof': 'The fact-check record points to this article URL.'})
@@ -56,19 +56,5 @@ def evidence_groups(sources, graph):
             overlap = len(words_a & words_b) / max(1, len(words_a | words_b))
             if same_publisher or (len(words_a) >= 10 and (norm(a.get('_text', '')) == norm(b.get('_text', '')) or (len(words_a) > 30 and overlap > 0.8))):
                 union.union(a['id'], b['id'])
-    for edge in graph['edges']:
-        if edge['relationship'] == 'links_to' and edge['source'] in union.parent and edge['target'] in union.parent:
-            union.union(edge['source'], edge['target'])
     return {s['id']: union.find(s['id']) for s in sources}
 
-
-def verdict_for(sources, groups):
-    support = {groups[s['id']] for s in sources if s['stance'] == 'supports' and (s['confidence'] or 0) >= .8}
-    refute = {groups[s['id']] for s in sources if s['stance'] == 'refutes' and (s['confidence'] or 0) >= .8}
-    if support and refute:
-        return 'MIXED', 'Low'
-    if len(refute) >= 2:
-        return 'DISPUTED', 'Moderate'
-    if len(support) >= 2:
-        return 'MOSTLY SUPPORTED', 'Moderate'
-    return 'NOT ENOUGH EVIDENCE', 'Unrated'
