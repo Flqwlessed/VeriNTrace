@@ -10,7 +10,7 @@ VeriTrace retrieves sources, extracts evidence, classifies short source excerpts
 | Hash set | Pipeline | Deduplicate canonical URLs and stop repeat fetches | Expected O(1) membership |
 | Adjacency-list directed graph | `backend/provenance.py`, graph frontend | Store source-to-source and source-to-claim relationships without a dense matrix | O(V+E) storage |
 | Breadth-first search with queue and visited/parent map | `frontend/graph.ts` | Find shortest observed directed citation path in the filtered view | O(V+E) |
-| Union-find with path compression | `backend/structures.py`, provenance | Group common publishers, observed citation connections and highly overlapping copies to reduce double counting | Near constant amortized find with compression in practice; this implementation has no union-by-rank guarantee |
+| Union-find with path compression | `backend/structures.py`, provenance | Group common publishers and highly overlapping copies to reduce double counting | Near constant amortized find with compression in practice; this implementation has no union-by-rank guarantee |
 | Bounded LRU cache with expiry and lock | Pipeline/structures | Reuse successful identical investigations for 15 minutes, up to 100 entries | Expected O(1) get/put |
 | Chronological ordering | Report/pipeline | Order dated evidence while keeping unknown dates explicit | O(n log n) |
 
@@ -57,7 +57,7 @@ python -c "import sqlite3; c=sqlite3.connect('data/veritrace.db'); print(c.execu
 4. Server retrieves search results; missing search service triggers a limited encyclopedia fallback.
 5. A priority queue selects at most eight starting sources. Three workers retrieve pages. A second bounded frontier follows up to four relevant article-body citations.
 6. Optional professional fact checks are combined with ClaimReview metadata found in pages.
-7. Groq classifies all available evidence in one request. A returned quote must be 8–24 words and appear verbatim in the supplied evidence window. Otherwise it is rejected and the source remains context.
+7. Groq classifies all available evidence in one request. A returned quote must be 3–45 words and appear with the same wording after whitespace normalization in the supplied evidence window. Otherwise it is rejected and the source remains context.
 8. Provenance uses observed article-body hyperlinks. Exact claim wording produces an observed `repeats_claim` relation; AI semantic classification produces a visibly inferred `references` relation. A repeated claim is not necessarily endorsed.
 9. Grouping reduces duplicated evidence. A conservative deterministic rule generates the preliminary verdict; the model is not asked to decide truth from its memory.
 10. SQLite saves the report. The browser renders source cards, the graph, timeline, warnings and history.
@@ -71,3 +71,9 @@ Each provider adapter handles its own unavailable/invalid response. All external
 Only static web assets are served; `.env`, database files and Python sources cannot be downloaded over HTTP. The frontend escapes text, restricts link schemes and never receives keys. The server enforces localhost Host/Origin checks and JSON requests. Rate limiting allows one new investigation every five seconds and two simultaneous jobs.
 
 This local HTTP server is deliberately not an internet deployment platform. Authentication, per-user ownership, stronger abuse controls, robust publisher extraction, assessed test datasets, multilingual matching and social-network integrations are future work, not silently claimed features.
+
+## Version 2 deployment and decisions
+
+`backend/decision.py` now owns TRUE/FALSE evidence rules and explicit unresolved reasons. A citation is a relationship, not proof of dependence: sources are no longer unioned merely because one links to the other. Validated short denials and matching professional reviews can support a decision. Full details are in `UPDATE-V2.md`.
+
+On Vercel, `api/dispatch.py` emits newline-delimited JSON stage events and a final report. `frontend/transport.ts` consumes the stream. No background job is assumed to survive a serverless response. `frontend/history.ts` uses IndexedDB transactions keyed by report ID for per-browser history; the local path continues using SQLite. Production diagnostics are disabled.

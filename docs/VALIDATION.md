@@ -2,7 +2,7 @@
 
 ## Passed
 
-- 11 Python standard-library unit and local HTTP integration tests.
+- 25 Python standard-library unit and local HTTP integration tests.
 - SQLite report save and exact graph replay, evidence counts and foreign-key consistency.
 - Demo endpoint, recent history, saved report endpoint, and static asset HTTP responses.
 - Missing/rejected provider responses produce structured partial results.
@@ -40,3 +40,9 @@ python -m unittest discover -s tests -v
 8. Reopen the report from Recent investigations. Export its JSON.
 9. Add your two free-tier keys, restart, and submit a real claim. Inspect service notes and open the source links.
 10. Remove a key and restart. The app must show partial evidence or an explicit unavailable state, never substitute a fictional demo into the live report.
+
+## Version 2 regression coverage
+
+Tests additionally verify TRUE from a direct official source, FALSE from a single direct debunk, conflict handling, refusal to endorse a repeated rumor, short/whitespace quote validation, wrong-year review rejection, non-binary review ratings, raw-article extraction fallback, and preservation of separate evidence groups across citations. Vercel-handler tests verify health, demos without a database, streamed stages/result and explicit streamed failures. These tests use synthetic fixtures and mocked providers, not authenticated live calls.
+
+Vercel deployment and browser rendering have not been verified in this environment. The Python handler is tested locally; the configuration follows Vercel's documented `/api` function format.
