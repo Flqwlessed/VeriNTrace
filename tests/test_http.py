@@ -54,7 +54,7 @@ class HTTPTests(unittest.TestCase):
             if state['state']!='running':result=state;break
             time.sleep(.01)
         self.assertIsNotNone(result);self.assertEqual(result['state'],'done')
-        self.assertEqual(result['result']['verdict'],'NOT ENOUGH EVIDENCE')
+        self.assertEqual(result['result']['verdict'],'UNABLE TO VERIFY')
         self.assertEqual(result['result']['services']['database'],'available')
         self.assertEqual(len(self.get('/api/history')),1)
 

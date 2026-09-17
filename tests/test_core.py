@@ -7,7 +7,8 @@ from backend.demos import demo
 from backend.extract import ArticleParser, date_value
 from backend.net import canonical_url, request, ServiceError
 from backend.pipeline import investigate
-from backend.provenance import make_graph, verdict_for
+from backend.provenance import make_graph
+from backend.decision import decide
 from backend.structures import PriorityQueue, DirectedGraph, TTLCache
 
 
@@ -42,13 +43,13 @@ class CoreTests(unittest.TestCase):
     def test_no_artificial_edges(self):
         s={'id':'s0','title':'Story','publisher':'example.com','url':'https://example.com/a','publishedAt':None,'stance':'context','confidence':None,'excerpt':'Context','_text':'Unrelated text','_links':[],'domain':'example.com'}
         self.assertEqual(make_graph('The railway network is permanently closing.',[s],[])['edges'],[])
-        self.assertEqual(verdict_for([s],{'s0':'s0'})[0],'NOT ENOUGH EVIDENCE')
+        self.assertEqual(decide([s],{'s0':'s0'},[],{})['verdict'],'UNABLE TO VERIFY')
     @patch('backend.pipeline.providers.classify',return_value=({},'not_configured',[]))
     @patch('backend.pipeline.providers.fact_checks',return_value=([],'unavailable',[]))
     @patch('backend.pipeline.providers.search',return_value=([],'unavailable',['Search unavailable']))
     def test_all_providers_down(self,*args):
         r=investigate('An unverified claim with no available sources.',[])
-        self.assertEqual(r['verdict'],'NOT ENOUGH EVIDENCE');self.assertEqual(r['status'],'partial')
+        self.assertEqual(r['verdict'],'UNABLE TO VERIFY');self.assertEqual(r['status'],'partial')
         self.assertEqual(r['graph']['edges'],[]);self.assertFalse(r['demo'])
     def test_quotes_and_citations(self):
         claim='The city railway is closing permanently.'
@@ -59,13 +60,13 @@ class CoreTests(unittest.TestCase):
         answers={f's{i}':{'stance':'refutes','confidence':.9,'quote':quote} for i in range(2)}
         with patch('backend.pipeline.providers.search',return_value=(rows,'available',[])),patch('backend.pipeline.providers.fact_checks',return_value=([],'available',[])),patch('backend.pipeline.extract',return_value=article),patch('backend.pipeline.providers.classify',return_value=(answers,'available',[])):
             r=investigate(claim,[])
-            self.assertEqual(r['verdict'],'NOT ENOUGH EVIDENCE');self.assertEqual(r['sourceGroups'],1);self.assertEqual(len(r['graph']['edges']),2)
+            self.assertEqual(r['verdict'],'UNABLE TO VERIFY');self.assertEqual(r['sourceGroups'],1);self.assertEqual(len(r['graph']['edges']),2)
             self.assertEqual(r['earliestSourceId'],'s0')
         bad={'s0':{'stance':'supports','confidence':.99,'quote':'This fabricated passage has never appeared in the source text at all.'}}
         with patch('backend.pipeline.providers.search',return_value=(rows,'available',[])),patch('backend.pipeline.providers.fact_checks',return_value=([],'available',[])),patch('backend.pipeline.extract',return_value=article),patch('backend.pipeline.providers.classify',return_value=(bad,'available',[])):
             r=investigate(claim+' Today?',[])
             self.assertTrue(all(s['stance']=='context' for s in r['evidence']))
-            self.assertEqual(r['verdict'],'NOT ENOUGH EVIDENCE')
+            self.assertEqual(r['verdict'],'UNABLE TO VERIFY')
     @patch('backend.providers.config.TAVILY_KEY','fake')
     @patch('backend.providers.json_request',side_effect=ServiceError('API key rejected'))
     def test_rejected_key(self,*args):
