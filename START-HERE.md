@@ -1,5 +1,7 @@
 # Start VeriTrace on your laptop
 
+Already set up the old version? Read `UPDATE-V2.md` first. For hosting, read `DEPLOY-VERCEL.md`.
+
 ## 1. Extract the ZIP
 
 Right-click `VeriTrace.zip` → **Extract All**. Open the extracted `VeriTrace` folder. It must contain `run.py`, `start-windows.bat`, `backend`, `frontend` and `web`.
@@ -114,7 +116,7 @@ A candidate fact-check result is not automatically an exact match. The reviewed 
 | Search unavailable | Network or provider issue. Try supplied source URLs; demo mode still works. |
 | Article text unavailable | The site may block extraction or require JavaScript. That source stays context-only. Try another accessible source. |
 | Graph has few/no edges | The retrieved pages do not establish a citation chain. Add articles that actually link to one another; the app deliberately does not fabricate branches. |
-| Not enough evidence | This is an honest result, not a broken API. Read the evidence and service notes. |
+| Unable to verify | Read the explanation: it identifies conflicting evidence, an API problem, unreadable text or inconclusive material. |
 | Old results look different from current services | History reopens the saved snapshot; submit a new investigation for current evidence. |
 | History cannot be saved | Move the extracted folder to a writable location, such as Documents. Export the current report as JSON before closing. |
 
